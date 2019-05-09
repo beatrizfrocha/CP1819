@@ -1393,11 +1393,39 @@ singular :: [a] -> a
 singular [a] = a
 
 find :: (Eq a) => a -> FS a b -> [Path a]
---find = hyloFS
-find = undefined
+find = cataFS . concatMap . g
+    where f :: a -> Either [Path a] [Path a] -> [Path a]
+          f a = either ([a]:) (map (a:))
+          g :: Eq a => a -> (a, Either b [Path a]) -> [Path a]
+          g a = uncurry f . (id >< (nil -|- filter ((==a).last)))
+
+
+--find :: (Eq a) => a -> FS a b -> [Path a]
+--find a = cataFS (f a)
+
+--f :: (Eq a) => a -> [(a, Either b [Path a])] -> [Path a]
+--f a = concatMap (g . (id >< either nil (filter ((== a) . last))))
+--  where g (a, l) = map (a :) l
+
+--find :: (Eq a) => a -> FS a b -> [Path a]
+--find a = cataFS (f a)
+--f :: (Eq a) => a -> [(a, Either b [Path a])] -> [Path a]
+--f a = concatMap (g . (id >< either nil (filter ((== a) . last))))
+--    where g (a, l) = if null (map (a :) l) then [singl a] else map (a: ) l
+
+--find :: (Eq a) => a -> FS a b -> [Path a]
+--find a = cataFS (cataAux a)
+
+
+--cataAux :: (Eq a) => a -> [(a,Either b [Path a])] -> [Path a]
+--cataAux a0 = concat.(  map (g.(id >< (either nil (filter ((==a0).last))))))
+--        where g (a,l) = map (a:) l
+--  cons.(id >< either nil  filter ((==a0).last))
 
 new :: (Eq a) => Path a -> b -> FS a b -> FS a b
-new = undefined
+new a b = untar . g (a,b) . tar
+  where
+    g = (cons .) . (,)
 
 cp :: (Eq a) => Path a -> Path a -> FS a b -> FS a b
 cp = undefined
