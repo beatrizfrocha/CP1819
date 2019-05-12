@@ -1159,8 +1159,9 @@ show' = cataExpr (either showAux auxShow)
             auxShow(o,(s1,s2)) = calculaString o s1 s2
 
 showAux:: Int -> String
-showAux a = if a>=0 then show a
-            else "(" ++ show a ++ ")"
+showAux a = show a
+  --if a>=0 then show a
+    --        else "(" ++ show a ++ ")"
 
 calculaString :: Op -> String -> String -> String
 calculaString (Op "+") s1 s2 = "(" ++ s1 ++ " + " ++ s2 ++ ")"
