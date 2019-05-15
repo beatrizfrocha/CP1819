@@ -1429,7 +1429,42 @@ new a b = untar . g (a,b) . tar
     g = (cons .) . (,)
 
 cp :: (Eq a) => Path a -> Path a -> FS a b -> FS a b
-cp = undefined
+cp from to f = let nFS = ana1 (from, f)
+               in auxAna2 (nFS, (to, f))
+
+auxAna2 :: Eq a => (FS a b, (Path a, FS a b)) -> FS a b
+auxAna2 = cond (null.outFS.p1) (p2.p2) g where
+  g = cond (null.p1.p2) (inFS.conc.(outFS><outFS.p2)) f where
+    f (ficheiro, ((x:xs), fs)) = inFS .  map (\(i, v) -> if i == x then (i, cona ficheiro xs v)  else (i,v)) . outFS $ fs
+    cona :: Eq a => FS a b -> Path a ->  Either b (FS a b) -> Either b (FS a b)
+    cona ficheiro l v = case v of
+      (Left b) -> Left b
+      (Right a) -> Right $ auxAna2 (ficheiro, (l, a))
+
+ana1 :: Eq a => (Path a, FS a b) -> FS a b
+ana1 = cond (null.p1) (const (FS [])) (anaFS auxaux)
+
+auxaux  :: Eq a => (Path a, FS a b) -> [(a, Either b (Path a, FS a b))]
+auxaux = cond (null.p1) ((map (id><(id -|- (split nil id)))).outFS.p2) auxAna1
+
+auxAna1 :: Eq a => (Path a, FS a b) -> [(a, Either b (Path a, FS a b))]
+auxAna1 = cond ((\(x:xs) -> null xs).p1) f g
+                where
+                  f (caminho, fs) = map (id><(id -|- (split nil id))) . filter ((==actual).p1) . outFS $ fs  where
+                    actual = head caminho
+                  g (caminho, fs) = auxaux . (cond null (const ([], FS [])) (split (const resto) head)) . map ((either (const (FS [])) id).p2) . filter ((==actual).p1) . outFS $ fs where
+                    actual = head caminho
+                    resto = tail caminho
+
+
+--auxAna1 :: Eq a => (Path a, FS a b) -> [(a, Either b (Path a, FS a b))]
+--auxAna1 = cond ((\l -> if null l then True else (\(x:xs) -> null xs) l).p1) f g
+--      where
+--        f (caminho, fs) = map (id><(id -|- (split nil id))) . filter ((==actual).p1) . outFS $ fs  where
+--          actual = head caminho
+--        g (caminho, fs) = cond null nil (auxAna1.(split (const resto) inFS)) . filter ((==actual).p1) . outFS $ fs where
+--          actual = head caminho
+--          resto = tail caminho
 
 rm :: (Eq a) => (Path a) -> (FS a b) -> FS a b
 rm = undefined
