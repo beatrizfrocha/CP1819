@@ -1435,9 +1435,9 @@ cp from to f = let nFS = ana1 (from, f)
 auxAna2 :: Eq a => (FS a b, (Path a, FS a b)) -> FS a b
 auxAna2 = cond (null.outFS.p1) (p2.p2) g where
   g = cond (null.p1.p2) (inFS.conc.(outFS><outFS.p2)) f where
-    f (ficheiro, ((x:xs), fs)) = inFS .  map (\(i, v) -> if i == x then (i, cona ficheiro xs v)  else (i,v)) . outFS $ fs
-    cona :: Eq a => FS a b -> Path a ->  Either b (FS a b) -> Either b (FS a b)
-    cona ficheiro l v = case v of
+    f (ficheiro, ((x:xs), fs)) = inFS .  map (\(i, v) -> if i == x then (i, inter ficheiro xs v)  else (i,v)) . outFS $ fs
+    inter :: Eq a => FS a b -> Path a ->  Either b (FS a b) -> Either b (FS a b)
+    inter ficheiro l v = case v of
       (Left b) -> Left b
       (Right a) -> Right $ auxAna2 (ficheiro, (l, a))
 
