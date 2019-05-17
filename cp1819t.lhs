@@ -1468,9 +1468,34 @@ auxAna1 = cond ((\(x:xs) -> null xs).p1) f g
 
 rm :: (Eq a) => (Path a) -> (FS a b) -> FS a b
 rm = undefined
+-- rm pat = w pat . curry nav pat
+--   where
+--     w pt fs = inFS $ filter(\l -> l/=last pt) (outFS fs)
+
+
+--rm pth fs = inFS g pth $ nav (pth, fs)
+--  where
+--    g pth fs = filter $ (f pth) (outFS fs)
+--    f pt (a,e) = if (last pt) /= a  then True else False
+
+
+--rmCata :: Path a -> FS a b -> FS a b
+--rmCata = cataFS
+
+nav :: Eq a => (Path a, FS a b) -> FS a b
+nav = anaFS gene
+
+gene :: Eq a => (Path a, FS a b) -> [(a, Either b (Path a, FS a b))]
+gene = auxJoin . k . (outFS >< id) . swap
+  where
+    k (lst, pth) = ((filter (\(x,y) -> x == last pth) lst),pth)
 
 auxJoin :: ([(a, Either b c)],d) -> [(a, Either b (d,c))]
-auxJoin = undefined
+auxJoin = uncurry (flip (map . g))
+--auxJoin (c,s) = map (g s) c
+           where
+              --  g :: d -> (a, Either b c) -> (a, Either b (d,c))
+                g d = id ><  (id -|- (,)d)
 
 cFS2Exp :: a -> FS a b -> (Exp () a)
 cFS2Exp = undefined
