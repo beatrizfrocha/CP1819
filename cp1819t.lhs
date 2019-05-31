@@ -1211,6 +1211,7 @@ auxConquer ((Op "-"),(c1,c2)) = c1 ++ c2 ++ ["SUB"]
 auxConquer ((Op "*"),(c1,c2)) = c1 ++ c2 ++ ["MUL"]
 auxConquer ((Op "/"),(c1,c2)) = c1 ++ c2 ++ ["DIV"]
 
+
 \end{code}
 
 \subsection*{Problema 2}
@@ -1237,12 +1238,7 @@ collectLeafs (Comp b a1 a2) = collectLeafs a1 ++ collectLeafs a2
 
 dimen :: X Caixa Tipo -> (Float, Float)
 dimen (Unid a) = dimenCaixa a
---dimen (Comp b a1 a2) | b == "V"
---                     | b == "Vd"
---                     | b == "Ve"
---                     | b == "H"
---                     | b == "Hb"
---                     | b == "Ht"
+
 
 dimenCaixa :: Caixa -> (Float,Float)
 dimenCaixa ((int1,int2),(t,c)) = (fromIntegral int1, fromIntegral int2)
@@ -1260,7 +1256,7 @@ caixasAndOrigin2Pict = undefined
 Solução:
 
 Neste problema pretende-se implementar um ciclo que implemente
-o cálculo da aproximação até |i=n| da função cosseno $cos\ x
+o cálculo da aproximação até |i=n| da função cosseno $cos\ x$
 via série de Taylor:
 \begin{eqnarray*}
 	cos\ x = \sum_{i=0}^\infty \frac{(-1)^i}{(2i)!} x^{2i}
@@ -1457,17 +1453,14 @@ auxAna1 = cond ((\(x:xs) -> null xs).p1) f g
                     resto = tail caminho
 
 
---auxAna1 :: Eq a => (Path a, FS a b) -> [(a, Either b (Path a, FS a b))]
---auxAna1 = cond ((\l -> if null l then True else (\(x:xs) -> null xs) l).p1) f g
---      where
---        f (caminho, fs) = map (id><(id -|- (split nil id))) . filter ((==actual).p1) . outFS $ fs  where
---          actual = head caminho
---        g (caminho, fs) = cond null nil (auxAna1.(split (const resto) inFS)) . filter ((==actual).p1) . outFS $ fs where
---          actual = head caminho
---          resto = tail caminho
 
 rm :: (Eq a) => (Path a) -> (FS a b) -> FS a b
+--rm p fs = curry concatFS fs $ inFS $ filter(\l-> fst l /= p) $ outFS $ nav (p,fs)
 rm = undefined
+--rm x = untar . filter(\l -> fst l /= x) . tar
+
+
+
 -- rm pat = w pat . curry nav pat
 --   where
 --     w pt fs = inFS $ filter(\l -> l/=last pt) (outFS fs)
