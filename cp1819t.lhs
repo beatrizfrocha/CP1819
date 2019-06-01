@@ -65,6 +65,7 @@
 %format LTree = "\mathsf{LTree}"
 %format inNat = "\mathsf{in}"
 %format (cataNat (g)) = "\cata{" g "}"
+%format (anaNat (f)) = "\ana{" f "} "
 %format Nat0 = "\N_0"
 %format muB = "\mu "
 %format (frac (n)(m)) = "\frac{" n "}{" m "}"
@@ -85,6 +86,7 @@
 %format .&&&. = "\wedge"
 %format cdots = "\cdots "
 %format pi = "\pi "
+%format listS = "^*"
 
 %---------------------------------------------------------------------------
 
@@ -1123,7 +1125,7 @@ alterados os nomes ou tipos das funções dadas, mas pode ser adicionado texto e
 outras funções auxiliares que sejam necessárias.
 
 \subsection*{Problema 1}
-
+\subsubsection*{Definição do tipo de dados}
 \begin{code}
 
 inExpr :: Either Int (Op,(Expr,Expr)) -> Expr
@@ -1133,6 +1135,10 @@ outExpr :: Expr -> Either Int (Op,(Expr,Expr))
 outExpr (Num a)       = i1 a
 outExpr (Bop e1 o e2) = i2 (o, (e1, e2))
 
+\end{code}
+\subsubsection*{Padrões de recursividade}
+\begin{code}
+
 recExpr f = baseExpr id f
 
 cataExpr g = g . (recExpr (cataExpr g)) . outExpr
@@ -1141,11 +1147,35 @@ anaExpr f = inExpr . (recExpr (anaExpr f) ) . f
 
 hyloExpr a c = cataExpr a . anaExpr c
 
+\end{code}
+
+
+
+\subsubsection*{calcula}
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |Expr|
+           \ar[d]_-{calcula}
+&
+    |Int + (Op >< (Expr >< Expr))|
+           \ar[d]^{|id + (id >< (calcula >< calcula))|}
+           \ar[l]_-{|inNat|}
+\\
+     |Int|
+&
+     |Int + (Op >< (Int >< Int))|
+           \ar[l]^-{|[id,aux]|}
+}
+\end{eqnarray*}
+
+
+\begin{code}
 
 calcula :: Expr -> Int
 calcula = cataExpr (either id aux)
       where aux::(Op,(Int,Int)) -> Int
             aux(o,(int1,int2)) =  calculaOP o int1 int2
+
 
 calculaOP :: Op -> Int -> Int -> Int
 calculaOP (Op "+") int1 int2 = (+) int1 int2
@@ -1153,22 +1183,35 @@ calculaOP (Op "-") int1 int2 = (-) int1 int2
 calculaOP (Op "*") int1 int2 = (*) int1 int2
 calculaOP (Op "/") int1 int2 = div int1 int2
 
-show' :: Expr -> String
-show' = cataExpr (either showAux auxShow)
-      where auxShow::(Op,(String,String)) -> String
-            auxShow(o,(s1,s2)) = calculaString o s1 s2
+\end{code}
 
-showAux:: Int -> String
-showAux a = show a
-  --if a>=0 then show a
-    --        else "(" ++ show a ++ ")"
+\subsubsection*{compile}
+\begin{eqnarray*}
+\xymatrix@@C=3cm@@R=2cm{
+	|String|
+		\ar[r]^{|divide|}
+		\ar[d]||{|anaNat (divide)|}
+&
+	|Int + (Op >< (String >< String))|
+		\ar[d]||{| id + (id >< ((anaNat divide) >< (anaNat divide))) |}
+\\
+	|Expr|
+		\ar[d]||{|cataNat conquer|}
+&
+	|Int + (Op >< (Expr >< Expr))|
+		\ar[d]||{|id + (id >< ((cataNat conquer) >< (cataNat conquer)))|}
+		\ar[l]_-{|inNat|}
+\\
+	|Codigo|
+&
+	|Int + (Op >< (Codigo >< Codigo))|
+		\ar[l]^{|conquer|}
+}
+\end{eqnarray*}
 
-calculaString :: Op -> String -> String -> String
-calculaString (Op "+") s1 s2 = "(" ++ s1 ++ " + " ++ s2 ++ ")"
-calculaString (Op "-") s1 s2 = "(" ++ s1 ++ " - " ++ s2 ++ ")"
-calculaString (Op "*") s1 s2 = "(" ++ s1 ++ " * " ++ s2 ++ ")"
-calculaString (Op "/") s1 s2 = "(" ++ s1 ++ " / " ++ s2 ++ ")"
 
+
+\begin{code}
 
 compile :: String -> Codigo
 compile = hyloExpr conquer divide
@@ -1179,7 +1222,8 @@ divide s = if (length s)==1 then i1 (read s::Int)
 
 
 testaExpr :: String -> (Op,(String,String))
-testaExpr x = if isNothing res then (id><(filterParenteses >< filterParenteses)) $ aux $ span (\x -> x/='+' && x/='-' && x/='*' && x/='/') x else fromJust res
+testaExpr x = if isNothing res then (id><(filterParenteses >< filterParenteses))
+  $ aux $ span (\x -> x/='+' && x/='-' && x/='*' && x/='/') x else fromJust res
           where res = testaPadrao(x, [])
                 aux (a,b) = (Op [head b], (a, tail b))
                 filterParenteses = filter (\x -> x/='(' && x/=')')
@@ -1214,8 +1258,49 @@ auxConquer ((Op "/"),(c1,c2)) = c1 ++ c2 ++ ["DIV"]
 
 \end{code}
 
-\subsection*{Problema 2}
 
+\subsubsection*{show'}
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |Expr|
+           \ar[d]_-{show'}
+&
+    |Int + (Op >< (Expr >< Expr))|
+           \ar[d]^{|id + (id >< (show' >< show'))|}
+           \ar[l]_-{|inNat|}
+\\
+     |String|
+&
+     |Int + (Op >< (String >< String))|
+           \ar[l]^-{|[showAux,auxShow]|}
+}
+\end{eqnarray*}
+
+
+\begin{code}
+
+show' :: Expr -> String
+show' = cataExpr (either showAux auxShow)
+      where auxShow::(Op,(String,String)) -> String
+            auxShow(o,(s1,s2)) = calculaString o s1 s2
+
+showAux:: Int -> String
+showAux a = show a
+  --if a>=0 then show a
+    --        else "(" ++ show a ++ ")"
+
+calculaString :: Op -> String -> String -> String
+calculaString (Op "+") s1 s2 = "(" ++ s1 ++ " + " ++ s2 ++ ")"
+calculaString (Op "-") s1 s2 = "(" ++ s1 ++ " - " ++ s2 ++ ")"
+calculaString (Op "*") s1 s2 = "(" ++ s1 ++ " * " ++ s2 ++ ")"
+calculaString (Op "/") s1 s2 = "(" ++ s1 ++ " / " ++ s2 ++ ")"
+
+
+\end{code}
+
+
+\subsection*{Problema 2}
+\subsubsection*{Definição do tipo de dados}
 \begin{code}
 inL2D :: Either a (b, (X a b,X a b)) -> X a b
 inL2D = either Unid (uncurry(uncurry Comp).assocl)
@@ -1223,6 +1308,12 @@ inL2D = either Unid (uncurry(uncurry Comp).assocl)
 outL2D :: X a b -> Either a (b, (X a b,X a b))
 outL2D (Unid a) = i1 a
 outL2D (Comp b a1 a2) = i2 (b, (a1, a2))
+
+\end{code}
+
+\subsubsection*{Padrões de recursividade}
+
+\begin{code}
 
 recL2D h = baseL2D id id h
 
@@ -1237,14 +1328,42 @@ collectLeafs (Unid a) = [a]
 collectLeafs (Comp b a1 a2) = collectLeafs a1 ++ collectLeafs a2
 
 dimen :: X Caixa Tipo -> (Float, Float)
-dimen (Unid a) = dimenCaixa a
+dimen = cataL2D dimenAux
 
+dimenAux :: Either Caixa (Tipo,((Float,Float),(Float,Float))) -> (Float,Float)
+dimenAux = either dimenCaixa auxCata
 
 dimenCaixa :: Caixa -> (Float,Float)
 dimenCaixa ((int1,int2),(t,c)) = (fromIntegral int1, fromIntegral int2)
 
+auxCata :: (Tipo,((Float,Float),(Float,Float))) -> (Float,Float)
+auxCata (V,((f1,f2),(f3,f4))) = if (f3>f1) then (f3,f2+f4) else (f1,f2+f4)
+auxCata (Vd,((f1,f2),(f3,f4))) = if (f3>f1) then (f3,f2+f4) else (f1,f2+f4)
+auxCata (Ve,((f1,f2),(f3,f4))) = if (f3>f1) then (f3,f2+f4) else (f1,f2+f4)
+auxCata (H,((f1,f2),(f3,f4))) = if (f4>f2) then (f1+f3,f4) else (f1+f3,f2)
+auxCata (Hb,((f1,f2),(f3,f4))) = if (f4>f2) then (f1+f3,f4) else (f1+f3,f2)
+auxCata (Ht,((f1,f2),(f3,f4))) = if (f4>f2) then (f1+f3,f4) else (f1+f3,f2)
+
 calcOrigins :: ((X Caixa Tipo),Origem) -> X (Caixa,Origem) ()
-calcOrigins = undefined
+calcOrigins = anaL2D calcOriginsAux
+
+calcOriginsAux :: (X Caixa Tipo,Origem) -> Either (Caixa,Origem) ((),(((X Caixa Tipo),Origem),((X Caixa Tipo),Origem)))
+calcOriginsAux  ((Unid a), o)  = i1 (a,o)
+-- calcOriginsAux  ((Comp t1 x1 x2), o)  = i2 ((!) o,((x1, contaAux t1 (dimen x1) o ),(x2, contaAux t1 (dimen x2) o )))
+calcOriginsAux (Comp t x1 x2, o) = case t of
+  V  -> i2 ((!) o,((x1, o),(x2, (p1 o + (p1 (dimen x1) - p1 (dimen x2))/2, p2 (dimen x1) + p2 o))))
+  Vd -> i2 ((!) o,((x1, o),(x2, (p1 o + p1 (dimen x1) - p1 (dimen x2), p2 (dimen x1) + p2 o))))
+  Ve -> i2 ((!) o,((x1, o),(x2, (p1 o, p2 (dimen x1) + p2 o))))
+  H  -> i2 ((!) o,((x1, o),(x2, (p1 (dimen x1) + p1 o, p2 o + (p2 (dimen x1) - p2 (dimen x2))/2 ))))
+  Hb -> i2 ((!) o,((x1, o),(x2, (p1 (dimen x1) + p1 o, p2 o))))
+  Ht -> i2 ((!) o,((x1, o),(x2, (p1 (dimen x1) + p1 o, p2 (dimen x1) - p2(dimen x2) + p2 o))))
+
+agrupcaixas :: X (Caixa,Origem) () -> Fig
+agrupcaixas = cataL2D agrupcaixasAux
+
+agrupcaixasAux :: Either (Caixa,Origem) ((),(Fig,Fig)) -> Fig
+agrupcaixasAux (Left (c,o)) = [(o,c)]
+agrupcaixasAux (Right ((),(f1,f2))) = f1 ++ f2
 
 calc :: Tipo -> Origem -> (Float, Float) -> Origem
 calc = undefined
@@ -1281,11 +1400,16 @@ s (n+1) = k n + s n
 
 k 0 = 18
 k (n+1) = k n + 8
+
+
 \end{spec}
+
 Segundo a \emph{regra de algibeira} descrita na página \ref{pg:regra} deste enunciado,
 ter-se-á, de imediato:
 
+
 \begin{code}
+
 cos' x = prj . for loop init where
    loop (c,h,s,k) = (c+h,-x^2/s*h,s+k,k+8)
    init = (1,-x^2/2,12,18)
@@ -1311,7 +1435,29 @@ anaFS :: (c -> [(a, Either b c)]) -> c -> FS a b
 anaFS g = inFS . (recFS (anaFS g) ) . g
 
 hyloFS g h = (cataFS g). (anaFS h)
+
+
 \end{code}
+
+\subsubsection*{cataFS}
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |FS A B|
+           \ar[d]_-{|cataNat g|}
+&
+    |(A >< (B + FS A B)) listS|
+           \ar[d]^{|map(id >< (id + (cataNat g)))|}
+           \ar[l]_-{|inNat|}
+\\
+     |C|
+&
+     |(A >< (B + C)) listS|
+           \ar[l]^-{|g|}
+}
+\end{eqnarray*}
+
+
+
 Outras funções pedidas:
 \begin{code}
 check :: (Eq a) => FS a b -> Bool
