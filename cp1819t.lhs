@@ -87,6 +87,7 @@
 %format cdots = "\cdots "
 %format pi = "\pi "
 %format listS = "^*"
+%format (expn (a) (n)) = "{" a "}^{" n "}"
 
 %---------------------------------------------------------------------------
 
@@ -1323,9 +1324,55 @@ anaL2D g = inL2D . (recL2D (anaL2D g) ) . g
 
 baseL2D f g h = f -|- g >< (h><h)
 
+\end{code}
+\subsubsection*{collectLeafs}
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |X A B|
+           \ar[d]_-{collectLeafs}
+&
+    |A + (B >< (X A B >< X A B))|
+           \ar[d]^{|id + (id >< (collectLeafs >< collectLeafs))|}
+           \ar[l]_-{|inNat|}
+\\
+     |A listS|
+&
+     |A + (B >< (A listS >< A listS))|
+           \ar[l]^-{|[singl,concat.p2]|}
+}
+\end{eqnarray*}
+
+\begin{code}
+
 collectLeafs :: X a b -> [a]
-collectLeafs (Unid a) = [a]
-collectLeafs (Comp b a1 a2) = collectLeafs a1 ++ collectLeafs a2
+collectLeafs = cataL2D collectLeafsAux
+
+collectLeafsAux :: Either a (b,([a],[a])) -> [a]
+collectLeafsAux = either singl (concat.p2)
+
+\end{code}
+
+
+\subsubsection*{dimen}
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |X Caixa Tipo|
+           \ar[d]_-{dimen}
+&
+    |Caixa + (Tipo >< (X Caixa Tipo >< X Caixa Tipo))|
+           \ar[d]^{|id + (id >< (dimen >< dimen))|}
+           \ar[l]_-{|inNat|}
+\\
+     |(Float,Float)|
+&
+     |Caixa + (Tipo >< ((Float,Float) >< (Float,Float)))|
+           \ar[l]^-{|[dimenCaixa,auxCata]|}
+}
+\end{eqnarray*}
+
+
+\begin{code}
+
 
 dimen :: X Caixa Tipo -> (Float, Float)
 dimen = cataL2D dimenAux
@@ -1344,6 +1391,26 @@ auxCata (H,((f1,f2),(f3,f4))) = if (f4>f2) then (f1+f3,f4) else (f1+f3,f2)
 auxCata (Hb,((f1,f2),(f3,f4))) = if (f4>f2) then (f1+f3,f4) else (f1+f3,f2)
 auxCata (Ht,((f1,f2),(f3,f4))) = if (f4>f2) then (f1+f3,f4) else (f1+f3,f2)
 
+\end{code}
+\subsubsection*{calcOrigins}
+\begin{eqnarray*}
+\xymatrix@@C=0.2cm@@R=1cm{
+	|X (Caixa><Origem) 1|
+&
+	|(Caixa><Origem)+(1><(X (Caixa><Origem) 1><X (Caixa><Origem) 1))|
+		\ar[l]_-{|inNat|}
+\\
+	|X Caixa Tipo><Origem|
+		\ar[u]||{|calcOrigins|}
+		\ar[r]_{}
+&
+	|(Caixa><Origem)+(1><((X Caixa Tipo><Origem)><(X Caixa Tipo><Origem)))|
+		\ar[u]||{|id+(id><(calcOrigins><calcOrigins))|}
+}
+\end{eqnarray*}
+\begin{code}
+
+
 calcOrigins :: ((X Caixa Tipo),Origem) -> X (Caixa,Origem) ()
 calcOrigins = anaL2D calcOriginsAux
 
@@ -1358,6 +1425,30 @@ calcOriginsAux (Comp t x1 x2, o) = case t of
   Hb -> i2 ((!) o,((x1, o),(x2, (p1 (dimen x1) + p1 o, p2 o))))
   Ht -> i2 ((!) o,((x1, o),(x2, (p1 (dimen x1) + p1 o, p2 (dimen x1) - p2(dimen x2) + p2 o))))
 
+\end{code}
+
+
+  \subsubsection*{agrupcaixas}
+  \begin{eqnarray*}
+  \xymatrix@@C=1cm{
+      |X (Caixa><Origem) 1|
+             \ar[d]_-{agrupcaixas}
+  &
+      |(Caixa><Origem)+(1><(X (Caixa><Origem) 1><X (Caixa><Origem) 1))|
+             \ar[d]^{|id + (id >< (agrupcaixas >< agrupcaixas))|}
+             \ar[l]_-{|inNat|}
+  \\
+       |Fig|
+  &
+       |(Caixa><Origem)+(1><(Fig><Fig))|
+             \ar[l]^-{|agrupcaixasAux|}
+  }
+  \end{eqnarray*}
+
+
+\begin{code}
+
+
 agrupcaixas :: X (Caixa,Origem) () -> Fig
 agrupcaixas = cataL2D agrupcaixasAux
 
@@ -1365,10 +1456,22 @@ agrupcaixasAux :: Either (Caixa,Origem) ((),(Fig,Fig)) -> Fig
 agrupcaixasAux (Left (c,o)) = [(o,c)]
 agrupcaixasAux (Right ((),(f1,f2))) = f1 ++ f2
 
+constroiFig :: Fig -> [G.Picture]
+constroiFig [] = []
+constroiFig ((o,((int1,int2),(t,c))):xs) = (crCaixa o (fromIntegral int1) (fromIntegral int2) t c) : constroiFig xs
+
+mostracaixas :: (L2D,Origem) -> IO()
+mostracaixas (l,o) = display (G.pictures (constroiFig (agrupcaixas (calcOrigins (l,o)))))
+
+
+
+caixasAndOrigin2Pict :: (X Caixa Tipo, Origem) -> G.Picture
+caixasAndOrigin2Pict (x,o) = G.pictures(constroiFig(agrupcaixas (calcOrigins (x,o))))
+
+
 calc :: Tipo -> Origem -> (Float, Float) -> Origem
 calc = undefined
 
-caixasAndOrigin2Pict = undefined
 \end{code}
 
 \subsection*{Problema 3}
@@ -1392,8 +1495,9 @@ e $|k (n+1)| = |k n| + 8 $. Daqui, obtemos no total quatro funções em recursiv
 c x 0 = 1
 c x (n+1) = c x n + h x n
 
-h x 0 = -x^2/2
-h x (n+1) = -x^2/(s n) * h x n
+h x 0 = - expn x 2 /2
+
+h x (n+1) = - expn x 2/(s n) * h x n
 
 s 0 = 12
 s (n+1) = k n + s n
@@ -1417,7 +1521,7 @@ cos' x = prj . for loop init where
 \end{code}
 
 \subsection*{Problema 4}
-Triologia ``ana-cata-hilo":
+\subsubsection*{Definição do tipo de dados}
 \begin{code}
 
 outFS (FS l) = map(id><outNode) l
@@ -1425,6 +1529,9 @@ outFS (FS l) = map(id><outNode) l
 outNode :: Node a b -> Either b (FS a b)
 outNode (File b) = i1 b
 outNode (Dir (FS a)) = i2 (FS a)
+\end{code}
+\subsubsection*{Padrões de recursividade}
+\begin{code}
 
 baseFS f g h = map(f><(g -|- h))
 
@@ -1459,6 +1566,7 @@ hyloFS g h = (cataFS g). (anaFS h)
 
 
 Outras funções pedidas:
+\subsubsection*{check}
 \begin{code}
 check :: (Eq a) => FS a b -> Bool
 check = isUnique . idsToList
@@ -1466,74 +1574,93 @@ check = isUnique . idsToList
 idsToList :: FS a b -> [a]
 idsToList = (cataList (either nil (uncurry (++).((inList.i2.(id><(either nil idsToList))><id))))) . outFS
 
+\end{code}
+Em primeiro lugar, vamos definir um \textit{anamorfismo} de listas que gera uma
+lista de pares cujo primeiro elemento é um \textit{booleano} que indica se o
+elemento é único e o segundo é o elemento em si.
+De seguida definimos um \textit{catamorfismo} que consome os booleanos da lista.
+
+\begin{eqnarray*}
+\xymatrix@@C=3cm@@R=2cm{
+	|A listS|
+		\ar[r]^{|listBool|}
+		\ar[d]||{|anaNat (listBool)|}
+&
+	|1 + Bool >< A list|
+		\ar[d]||{| id + id >< (anaNat listBool) |}
+\\
+	|(Bool >< A) listS|
+		\ar[d]||{|cataNat consumeBool|}
+&
+	|1 + (Bool >< A)>< (Bool >< A) listS|
+		\ar[d]||{|id + id >< (cataNat consumBool)|}
+		\ar[l]_-{|inNat|}
+\\
+	|Bool|
+&
+	|1 + (Bool >< A) >< Bool listS|
+		\ar[l]^{|consumeBool|}
+}
+\end{eqnarray*}
+
+
+\begin{code}
+
+
+
 isUnique :: (Eq a) => [a] -> Bool
 isUnique = consumeBool . listBool where
                listBool = anaList ((id -|- (split (split (uncurry notElem) p1) (p2))).outList)
                consumeBool = cataList (either (const True) ((uncurry (&&)).(p1><id)))
 
--- cataFS :: ([(a, Either b c)] -> c) -> FS a b -> c
+
+\end{code}
+\subsubsection*{tar}
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |FS A B|
+           \ar[d]_-{tar}
+&
+    |(A >< (B + FS A B)) listS|
+           \ar[d]^{|map(id >< (id + tar))|}
+           \ar[l]_-{|inNat|}
+\\
+     |(Path A >< B) listS|
+&
+     |(A >< (B + (Path A >< B) listS)) listS|
+           \ar[l]^-{|(concat . map (auxTar.(id >< (either auxTar' id))))|}
+}
+\end{eqnarray*}
+
+\begin{code}
 
 tar :: FS a b -> [(Path a, b)]
---tar = undefined
 tar = cataFS (concat . map (auxTar.(id >< (either auxTar' id))))
-
---cataFS (concat . map (map (id><head).auxTar.(id >< (either auxTar' id))))
-
-
-
-  -- ->>>>>cataFS (map (auxTar.(id >< (either auxTar' id))))
-
---tarAux :: [Either (a,b) [(Path a,b)]] -> [(Path a,b)]
---tarAux = map (either (singl><id) (collect' . concat . discollect))discollect ((l,b):t) = (map(\x -> (x,b)) l ): discollect t
-
---tarAux = map (either a b)
---tarAux = undefined
-  -- where
-  --   a = singl >< id
-  --   b = collect' . concat . discollect
---
--- mapTarAux :: (Eq b) => [(a,Either (a,b) [(Path a,b)])] -> [(Path a,b)]
--- mapTarAux = concat . (map (tarAux.p2))
---tarAux :: [(a, Either String [(Path a,String)])] -> [(Path a,String)]
---tarAux = map (singl >< (either id ((cataList g) . map p2)))
---    where g = either nil (uncurry (++))
 
 auxTar :: (a, [([a], b)]) -> [([a], b)]
 auxTar = ((\(x,y) -> (cataList (either nil (\((w, v),l) -> ([x]++w, v):l)) y)))
 
-
---auxTar :: [(a, [([a], b)])] -> [([a], b)]
---auxTar = map ((\(x,y) -> (foldr (\(w,v) acc -> ([x]++w,v)) ([],[]) y)))
-
 auxTar' :: b -> [([a], b)]
 auxTar' = singl . (\b->([], b))
--- tarAux :: (Eq b) => [(a,Either (a,b) [(Path a,b)])] -> [(Path a,b)]
--- tarAux = concat . map ((either (singl . (singl >< id)) (collect' . concat . discollect)) . p2)
---
---
 
-collect' :: (Eq b) => [(a,b)] -> [(Path a,b)]
-collect' [] = []
-collect' ((a,b):t) = let lb = filter (\(x,y) -> y==b) ((a,b):t)
-                         nb = filter(\(x,y) -> y/=b) t
-                         in ((map fst) lb, b) : collect' nb
-
-discollect :: [(Path a,b)] -> [[(a,b)]]
-discollect [] = []
-discollect ((l,b):t) = (map(\x -> (x,b)) l ): discollect t
+\end{code}
+\subsubsection*{untar}
+\begin{code}
 
 untar :: (Eq a) => [(Path a, b)] -> FS a b
 untar = joinDupDirs.(anaFS untarAux)
---untar=undefined
+
 
 untarAux :: (Eq a) => [([a],b)] -> [(a,Either b [([a],b)])]
---untarAux = undefined
+
 untarAux = map (split (head.fst) g)
         where g = (\((x:xs),f) -> if (null xs) then i1 f
                                                       else i2 [(xs,f)])
 
-singular :: [a] -> a
-singular [a] = a
+
+\end{code}
+\subsubsection*{find}
+\begin{code}
 
 find :: (Eq a) => a -> FS a b -> [Path a]
 find = cataFS . concatMap . g
@@ -1565,10 +1692,20 @@ find = cataFS . concatMap . g
 --        where g (a,l) = map (a:) l
 --  cons.(id >< either nil  filter ((==a0).last))
 
+\end{code}
+\subsubsection*{new}
+\begin{code}
+
+
 new :: (Eq a) => Path a -> b -> FS a b -> FS a b
 new a b = untar . g (a,b) . tar
   where
     g = (cons .) . (,)
+
+\end{code}
+\subsubsection*{cp}
+\begin{code}
+
 
 cp :: (Eq a) => Path a -> Path a -> FS a b -> FS a b
 cp from to f = let nFS = ana1 (from, f)
@@ -1598,6 +1735,9 @@ auxAna1 = cond ((\(x:xs) -> null xs).p1) f g
                     actual = head caminho
                     resto = tail caminho
 
+\end{code}
+\subsubsection*{rm}
+\begin{code}
 
 
 rm :: (Eq a) => (Path a) -> (FS a b) -> FS a b
@@ -1638,6 +1778,11 @@ auxJoin = uncurry (flip (map . g))
 
 cFS2Exp :: a -> FS a b -> (Exp () a)
 cFS2Exp = undefined
+-- cFS2Exp = anaFS cFS2ExpAux
+--
+-- cFS2ExpAux :: a -> FS a b -> [((),(Either a (a,FS a b)))]
+-- cFS2ExpAux a f = (a,f)
+
 \end{code}
 
 %----------------- Fim do anexo com soluções dos alunos ------------------------%
