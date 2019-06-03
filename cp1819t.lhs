@@ -1287,8 +1287,6 @@ show' = cataExpr (either showAux auxShow)
 
 showAux:: Int -> String
 showAux a = show a
-  --if a>=0 then show a
-    --        else "(" ++ show a ++ ")"
 
 calculaString :: Op -> String -> String -> String
 calculaString (Op "+") s1 s2 = "(" ++ s1 ++ " + " ++ s2 ++ ")"
@@ -1338,7 +1336,7 @@ baseL2D f g h = f -|- g >< (h><h)
      |A listS|
 &
      |A + (B >< (A listS >< A listS))|
-           \ar[l]^-{|[singl,concat.p2]|}
+           \ar[l]^-{|[singl,juntaListas.p2]|}
 }
 \end{eqnarray*}
 
@@ -1348,7 +1346,10 @@ collectLeafs :: X a b -> [a]
 collectLeafs = cataL2D collectLeafsAux
 
 collectLeafsAux :: Either a (b,([a],[a])) -> [a]
-collectLeafsAux = either singl (concat.p2)
+collectLeafsAux = either singl (juntaListas.p2)
+
+juntaListas :: ([a],[a]) -> [a]
+juntaListas (l1,l2) = l1 ++ l2
 
 \end{code}
 
@@ -1414,14 +1415,14 @@ auxCata (Ht,((f1,f2),(f3,f4))) = if (f4>f2) then (f1+f3,f4) else (f1+f3,f2)
 calcOrigins :: ((X Caixa Tipo),Origem) -> X (Caixa,Origem) ()
 calcOrigins = anaL2D calcOriginsAux
 
-calcOriginsAux :: (X Caixa Tipo,Origem) -> Either (Caixa,Origem) ((),(((X Caixa Tipo),Origem),((X Caixa Tipo),Origem)))
+calcOriginsAux :: (X Caixa Tipo,Origem) -> Either (Caixa,Origem)
+                        ((),(((X Caixa Tipo),Origem),((X Caixa Tipo),Origem)))
 calcOriginsAux  ((Unid a), o)  = i1 (a,o)
--- calcOriginsAux  ((Comp t1 x1 x2), o)  = i2 ((!) o,((x1, contaAux t1 (dimen x1) o ),(x2, contaAux t1 (dimen x2) o )))
 calcOriginsAux (Comp t x1 x2, o) = case t of
-  V  -> i2 ((!) o,((x1, o),(x2, (p1 o + (p1 (dimen x1) - p1 (dimen x2))/2, p2 (dimen x1) + p2 o))))
+  V  -> i2 ((!) o,((x1, o),(x2, (p1 o + (p1 (dimen x1))/2, p2 (dimen x1) + p2 o))))
   Vd -> i2 ((!) o,((x1, o),(x2, (p1 o + p1 (dimen x1) - p1 (dimen x2), p2 (dimen x1) + p2 o))))
   Ve -> i2 ((!) o,((x1, o),(x2, (p1 o, p2 (dimen x1) + p2 o))))
-  H  -> i2 ((!) o,((x1, o),(x2, (p1 (dimen x1) + p1 o, p2 o + (p2 (dimen x1) - p2 (dimen x2))/2 ))))
+  H  -> i2 ((!) o,((x1, o),(x2, (p1 (dimen x1) + p1 o, p2 o + (p2 (dimen x1))/2 ))))
   Hb -> i2 ((!) o,((x1, o),(x2, (p1 (dimen x1) + p1 o, p2 o))))
   Ht -> i2 ((!) o,((x1, o),(x2, (p1 (dimen x1) + p1 o, p2 (dimen x1) - p2(dimen x2) + p2 o))))
 
@@ -1458,19 +1459,24 @@ agrupcaixasAux (Right ((),(f1,f2))) = f1 ++ f2
 
 constroiFig :: Fig -> [G.Picture]
 constroiFig [] = []
-constroiFig ((o,((int1,int2),(t,c))):xs) = (crCaixa o (fromIntegral int1) (fromIntegral int2) t c) : constroiFig xs
+constroiFig ((o,((int1,int2),(t,c))):xs) = (crCaixa o (fromIntegral int1) (fromIntegral int2) t c)
+                                                                : constroiFig xs
 
 mostracaixas :: (L2D,Origem) -> IO()
-mostracaixas (l,o) = display (G.pictures (constroiFig (agrupcaixas (calcOrigins (l,o)))))
-
-
+mostracaixas (l,o) = display(caixasAndOrigin2Pict(l,o))
 
 caixasAndOrigin2Pict :: (X Caixa Tipo, Origem) -> G.Picture
 caixasAndOrigin2Pict (x,o) = G.pictures(constroiFig(agrupcaixas (calcOrigins (x,o))))
 
 
 calc :: Tipo -> Origem -> (Float, Float) -> Origem
-calc = undefined
+calc t o (f1,f2) = case t of
+  V -> (p1 o + f1/2, p2 o + f2)
+  Ve -> (p1 o, p2 o + f2)
+  Vd -> (p1 o + f1, p2 o + f2)
+  H -> (p1 o + f1, p2 o + f2/2)
+  Ht -> (p1 o + f1, p2 o + f2)
+  Hb -> (p1 o + f1, p2 o)
 
 \end{code}
 
@@ -1669,29 +1675,6 @@ find = cataFS . concatMap . g
           g :: Eq a => a -> (a, Either b [Path a]) -> [Path a]
           g a = uncurry f . (id >< (nil -|- filter ((==a).last)))
 
-
---find :: (Eq a) => a -> FS a b -> [Path a]
---find a = cataFS (f a)
-
---f :: (Eq a) => a -> [(a, Either b [Path a])] -> [Path a]
---f a = concatMap (g . (id >< either nil (filter ((== a) . last))))
---  where g (a, l) = map (a :) l
-
---find :: (Eq a) => a -> FS a b -> [Path a]
---find a = cataFS (f a)
---f :: (Eq a) => a -> [(a, Either b [Path a])] -> [Path a]
---f a = concatMap (g . (id >< either nil (filter ((== a) . last))))
---    where g (a, l) = if null (map (a :) l) then [singl a] else map (a: ) l
-
---find :: (Eq a) => a -> FS a b -> [Path a]
---find a = cataFS (cataAux a)
-
-
---cataAux :: (Eq a) => a -> [(a,Either b [Path a])] -> [Path a]
---cataAux a0 = concat.(  map (g.(id >< (either nil (filter ((==a0).last))))))
---        where g (a,l) = map (a:) l
---  cons.(id >< either nil  filter ((==a0).last))
-
 \end{code}
 \subsubsection*{new}
 \begin{code}
@@ -1714,7 +1697,8 @@ cp from to f = let nFS = ana1 (from, f)
 auxAna2 :: Eq a => (FS a b, (Path a, FS a b)) -> FS a b
 auxAna2 = cond (null.outFS.p1) (p2.p2) g where
   g = cond (null.p1.p2) (inFS.conc.(outFS><outFS.p2)) f where
-    f (ficheiro, ((x:xs), fs)) = inFS .  map (\(i, v) -> if i == x then (i, inter ficheiro xs v)  else (i,v)) . outFS $ fs
+    f (ficheiro, ((x:xs), fs)) = inFS .  map (\(i, v) -> if i == x then (i, inter ficheiro xs v)  else (i,v))
+                                                                  . outFS $ fs
     inter :: Eq a => FS a b -> Path a ->  Either b (FS a b) -> Either b (FS a b)
     inter ficheiro l v = case v of
       (Left b) -> Left b
@@ -1731,7 +1715,8 @@ auxAna1 = cond ((\(x:xs) -> null xs).p1) f g
                 where
                   f (caminho, fs) = map (id><(id -|- (split nil id))) . filter ((==actual).p1) . outFS $ fs  where
                     actual = head caminho
-                  g (caminho, fs) = auxaux . (cond null (const ([], FS [])) (split (const resto) head)) . map ((either (const (FS [])) id).p2) . filter ((==actual).p1) . outFS $ fs where
+                  g (caminho, fs) = auxaux . (cond null (const ([], FS [])) (split (const resto) head)) .
+                   map ((either (const (FS [])) id).p2) . filter ((==actual).p1) . outFS $ fs where
                     actual = head caminho
                     resto = tail caminho
 
@@ -1771,17 +1756,11 @@ gene = auxJoin . k . (outFS >< id) . swap
 
 auxJoin :: ([(a, Either b c)],d) -> [(a, Either b (d,c))]
 auxJoin = uncurry (flip (map . g))
---auxJoin (c,s) = map (g s) c
            where
-              --  g :: d -> (a, Either b c) -> (a, Either b (d,c))
                 g d = id ><  (id -|- (,)d)
 
 cFS2Exp :: a -> FS a b -> (Exp () a)
 cFS2Exp = undefined
--- cFS2Exp = anaFS cFS2ExpAux
---
--- cFS2ExpAux :: a -> FS a b -> [((),(Either a (a,FS a b)))]
--- cFS2ExpAux a f = (a,f)
 
 \end{code}
 
