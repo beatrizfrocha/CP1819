@@ -1502,7 +1502,6 @@ c x 0 = 1
 c x (n+1) = c x n + h x n
 
 h x 0 = - expn x 2 /2
-
 h x (n+1) = - expn x 2/(s n) * h x n
 
 s 0 = 12
@@ -1651,6 +1650,14 @@ auxTar' = singl . (\b->([], b))
 
 \end{code}
 \subsubsection*{untar}
+Definimos a função untar como um anamorfismo cujo gene é a função untarAux.
+Esta última função irá colocar a cabeça do Path a fornecido do lado esquerdo de
+[(a,Either b [([a],b)])]. Quanto ao lado direito, se o Path a fornecido tiver um
+único elemento, então apenas injetamos do lado esquerdo o b fornecido. Caso
+contrário, injetamos do lado direito a lista de pares formados pela cauda do
+Path A fornecido e pelo b fornecido.
+É importante mencionar que no fim aplicamos a função joinDupDirs para juntar
+directorias que estejam na mesma pasta e que possuam o mesmo identificador.
 \begin{code}
 
 untar :: (Eq a) => [(Path a, b)] -> FS a b
@@ -1658,8 +1665,7 @@ untar = joinDupDirs.(anaFS untarAux)
 
 
 untarAux :: (Eq a) => [([a],b)] -> [(a,Either b [([a],b)])]
-
-untarAux = map (split (head.fst) g)
+untarAux = map (split (head.p1) g)
         where g = (\((x:xs),f) -> if (null xs) then i1 f
                                                       else i2 [(xs,f)])
 
@@ -1677,6 +1683,12 @@ find = cataFS . concatMap . g
 
 \end{code}
 \subsubsection*{new}
+Em primeiro lugar, a função new aplica a função tar, devolvendo assim
+um [(Path a, b)]. De seguida, é aplicada a função g que junta o Path a e
+o b fornecidos com o resultado da função tar num par, ou seja, 
+((Path a, b),[(Path a, b)]) e, posteriormente, aplica cons de forma a que
+o que está à esquerda do par fique à cabeça da lista à direita. Por último,
+é aplicada a função untar para devolver o FS a b.
 \begin{code}
 
 
@@ -1722,45 +1734,67 @@ auxAna1 = cond ((\(x:xs) -> null xs).p1) f g
 
 \end{code}
 \subsubsection*{rm}
+Em primeiro lugar, a função rm irá aplicar a função tar ao FS a b fornecido e,
+assim, irá devolver um [(Path a, b)]. De seguida, será aplicada a função rmAux
+ao Path a fornecido e ao [(Path a, b)] resultante. Esta função consiste
+em remover o primeiro par dessa lista cujo Path a seja igual ao Path a
+fornecido. Por último, é aplicada a função untar que devolve o FS a b.
 \begin{code}
 
 
 rm :: (Eq a) => (Path a) -> (FS a b) -> FS a b
---rm p fs = curry concatFS fs $ inFS $ filter(\l-> fst l /= p) $ outFS $ nav (p,fs)
-rm = undefined
---rm x = untar . filter(\l -> fst l /= x) . tar
+rm a b = untar (rmAux a (tar b))
 
 
-
--- rm pat = w pat . curry nav pat
---   where
---     w pt fs = inFS $ filter(\l -> l/=last pt) (outFS fs)
-
-
---rm pth fs = inFS g pth $ nav (pth, fs)
---  where
---    g pth fs = filter $ (f pth) (outFS fs)
---    f pt (a,e) = if (last pt) /= a  then True else False
-
-
---rmCata :: Path a -> FS a b -> FS a b
---rmCata = cataFS
-
-nav :: Eq a => (Path a, FS a b) -> FS a b
-nav = anaFS gene
-
-gene :: Eq a => (Path a, FS a b) -> [(a, Either b (Path a, FS a b))]
-gene = auxJoin . k . (outFS >< id) . swap
-  where
-    k (lst, pth) = ((filter (\(x,y) -> x == last pth) lst),pth)
+rmAux :: Eq a => Path a -> [(Path a, b)] -> [(Path a, b)]
+rmAux _ [] = []
+rmAux a1 ((a2,b):xs) = if (a1 == a2) then xs else rmAux a1 xs
 
 auxJoin :: ([(a, Either b c)],d) -> [(a, Either b (d,c))]
 auxJoin = uncurry (flip (map . g))
            where
                 g d = id ><  (id -|- (,)d)
 
+\end{code}
+\subsubsection*{cFS2Exp}
+Definimos a função cFS2Exp como um anamorfismo cujo gene é cFS2ExpAux.
+Esta última transforma um par formado por a (sendo este a root)
+e um FS a b num par formado pelo mesmo a e o resultado de aplicar outFS (onde,
+neste caso, a irá representar as subdiretorias). De seguida, o b resultante
+de aplicar outFS será transformado num FS a b e, assim, poderá juntar-se ao
+outro FS a b. Por último, apenas será necessário aplicar a injeção i2.
+
+\begin{eqnarray*}
+\xymatrix@@C=3.1cm@@R=2cm{
+	|Exp 1 A|
+&
+	|1 + (A >< (Exp 1 A) listS)|
+		\ar[l]_-{|inNat|}
+\\
+	|A >< FS A B|
+		\ar[u]||{|cFS2Exp|}
+		\ar[r]_{|i2.g.h.f|}
+&
+	|1 + (A >< (A >< FS A B) listS)|
+		\ar[u]||{|id + (id >< map cFS2Exp)|}
+}
+\end{eqnarray*}
+
+\begin{code}
+
+
 cFS2Exp :: a -> FS a b -> (Exp () a)
-cFS2Exp = undefined
+cFS2Exp = curry (anaExp cFS2ExpAux)
+
+cFS2ExpAux :: (a,FS a b) -> Either () (a,[(a,FS a b)])
+cFS2ExpAux = i2 . g . h . f
+          where
+            g :: (a,[(a,Either (FS a b) (FS a b))]) -> (a,[(a,FS a b)])
+            g = (id >< map (id >< (either id id)))
+            f :: (a,FS a b) -> (a,[(a,Either b (FS a b))])
+            f = (id >< outFS)
+            h :: (a,[(a,Either b (FS a b))]) -> (a,[(a,Either (FS a b) (FS a b))])
+            h = (id >< map (id >< ((const (FS [])) -|- id)))
 
 \end{code}
 
